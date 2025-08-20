@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>لوحة إدارة الموظفين - فرز حسب الوقت</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body class="bg-slate-100 font-sans">
+  <div class="max-w-7xl mx-auto p-6">
+    <header class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+      <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">لوحة إدارة الموظفين - فرز حسب آخر زيارة</h1>
+      <div class="flex gap-2">
+        <button onclick="exportExcel()" class="bg-green-600 text-white px-4 py-2 rounded-xl shadow">📥 تصدير Excel</button>
+        <button onclick="resetData()" class="bg-red-500 text-white px-4 py-2 rounded-xl shadow">🔄 مسح البيانات</button>
+      </div>
+    </header>
+
+    <!-- إضافة قائمة جديدة -->
+    <section class="mb-6 flex gap-2 items-center">
+      <input id="listName" placeholder="اسم القائمة" class="border rounded-xl px-4 py-2 w-64">
+      <input id="listColor" type="color" value="#4CAF50" class="w-10 h-10 border rounded-xl cursor-pointer">
+      <button onclick="addList()" class="px-4 py-2 bg-slate-800 text-white rounded-xl shadow">➕ إضافة قائمة</button>
+    </section>
+
+    <!-- عرض القوائم -->
+    <div id="listsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  </div>
+
+  <!-- لوحة الملاحظات -->
+  <div class="notes-panel" id="notesPanel">
+    <div class="flex justify-between items-center mb-2">
+      <span id="notesTitle" class="font-bold text-lg"></span>
+      <button onclick="closeNotes()" class="text-red-500 text-2xl">✖</button>
+    </div>
+    <div id="chatBox" class="flex-1 overflow-y-auto mb-2" style="max-height: 400px;"></div>
+    <input id="noteInput" placeholder="اكتب ملاحظة..." class="w-full border rounded-xl px-3 py-2">
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'empDashboardTimeSorted';
+    let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || { lists: [] };
+
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      render();
+    }
+
+    function addList() {
+      const name = document.getElementById('listName').value.trim();
+      const color = document.getElementById('listColor').value;
+      if (!name) return alert('أدخل اسم القائمة');
+      state.lists.push({ id: Date.now(), name, color, employees: [] });
+      save();
+      document.getElementById('listName').value = '';
+    }
+
+    function addEmployee(listId) {
+      const name = prompt('اسم الموظف:');
+      if (!name) return;
+      const list = state.lists.find(l => l.id === listId);
+      const now = new Date();
+      const time = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+      list.employees.push({ id: Date.now(), name, visits: 0, lastVisit: null, lastTime: null, notes: [] });
+      save();
+    }
+
+    function deleteEmployee(listId, empId) {
+      const list = state.lists.find(l => l.id === listId);
+      list.employees = list.employees.filter(e => e.id !== empId);
+      save();
+    }
+
+    function openNotes(listId, empId) {
+      const list = state.lists.find(l => l.id === listId);
+      const emp = list.employees.find(e => e.id === empId);
+      document.getElementById('notesTitle').textContent = `ملاحظات: ${emp.name}`;
+      const chatBox = document.getElementById('chatBox');
+      chatBox.innerHTML = '';
+      emp.notes.forEach(text => {
+        const div = document.createElement('div');
+        div.className = 'note';
+        div.textContent = text;
+        chatBox.appendChild(div);
+      });
+      document.getElementById('notesPanel').style.display = 'flex';
+      document.getElementById('noteInput').value = '';
+      document.getElementById('noteInput').dataset.listId = listId;
+      document.getElementById('noteInput').dataset.empId = empId;
+    }
+
+    function closeNotes() {
+      document.getElementById('notesPanel').style.display = 'none';
+    }
+
+    document.getElementById('noteInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const text = e.target.value.trim();
+        if (!text) return;
+        const listId = +e.target.dataset.listId;
+        const empId = +e.target.dataset.empId;
+        const list = state.lists.find(l => l.id === listId);
+        const emp = list.employees.find(e => e.id === empId);
+        emp.notes.push(text);
+        save();
+        openNotes(listId, empId);
+      }
+    });
+
+    function updateVisits(listId, empId, delta) {
+      const list = state.lists.find(l => l.id === listId);
+      const emp = list.employees.find(e => e.id === empId);
+      emp.visits = Math.max(0, emp.visits + delta);
+      if (delta > 0) {
+        const now = new Date();
+        emp.lastTime = now.getTime();
+        emp.lastVisit = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+      }
+      // فرز الموظفين حسب الوقت (الأقدم أولاً)
+      list.employees.sort((a, b) => (a.lastTime || 0) - (b.lastTime || 0));
+      save();
+    }
+
+    function render() {
+      const container = document.getElementById('listsContainer');
+      container.innerHTML = '';
+      state.lists.forEach(list => {
+        const section = document.createElement('section');
+        section.className = 'bg-white border rounded-2xl shadow p-4';
+        section.style.borderColor = list.color;
+
+        section.innerHTML = `
+          <div class="flex justify-between items-center mb-3">
+            <input class="list-name font-bold text-lg bg-transparent" value="${list.name}" onchange="renameList(${list.id}, this.value)">
+            <input type="color" value="${list.color}" onchange="changeColor(${list.id}, this.value)">
+            <button class="text-red-500 text-sm" onclick="deleteList(${list.id})">🗑️</button>
+          </div>
+          <button onclick="addEmployee(${list.id})" class="mb-2 text-sm bg-blue-500 text-white px-3 py-1 rounded">➕ إضافة موظف</button>
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b">
+                <th class="text-left">الاسم</th>
+                <th class="text-center">الزيارات</th>
+                <th class="text-center">آخر زيارة</th>
+                <th class="text-center">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="list-${list.id}">
+              ${list.employees.map(emp => `
+                <tr>
+                  <td>${emp.name}</td>
+                  <td class="text-center">
+                    <button onclick="updateVisits(${list.id}, ${emp.id}, -1)">-</button>
+                    <span class="mx-2">${emp.visits}</span>
+                    <button onclick="updateVisits(${list.id}, ${emp.id}, 1)">+</button>
+                  </td>
+                  <td class="text-center">${emp.lastVisit || '-'}</td>
+                  <td class="text-center">
+                    <button onclick="openNotes(${list.id}, ${emp.id})" class="text-sm bg-green-100 px-2 py-1 rounded">💬</button>
+                    <button onclick="deleteEmployee(${list.id}, ${emp.id})" class="text-sm bg-red-100 px-2 py-1 rounded">❌</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+        container.appendChild(section);
+      });
+    }
+
+    function renameList(id, name) {
+      const list = state.lists.find(l => l.id === id);
+      list.name = name;
+      save();
+    }
+
+    function changeColor(id, color) {
+      const list = state.lists.find(l => l.id === id);
+      list.color = color;
+      save();
+    }
+
+    function deleteList(id) {
+      if (confirm('هل أنت متأكد من حذف القائمة؟')) {
+        state.lists = state.lists.filter(l => l.id !== id);
+        save();
+      }
+    }
+
+    function exportExcel() {
+      const wb = XLSX.utils.book_new();
+      state.lists.forEach(list => {
+        const rows = [['القائمة', 'الاسم', 'عدد الزيارات', 'آخر زيارة', 'الملاحظات']];
+        list.employees.forEach(emp => {
+          rows.push([list.name, emp.name, emp.visits, emp.lastVisit || '-', emp.notes.join(' | ')]);
+        });
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, list.name);
+      });
+
+      const summary = [['القائمة', 'عدد الموظفين', 'إجمالي الزيارات', 'متوسط الزيارات']];
+      state.lists.forEach(list => {
+        const total = list.employees.reduce((sum, e) => sum + e.visits, 0);
+        const avg = list.employees.length ? (total / list.employees.length).toFixed(1) : 0;
+        summary.push([list.name, list.employees.length, total, avg]);
+      });
+      const wsSummary = XLSX.utils.aoa_to_sheet(summary);
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'تلخيص');
+
+      XLSX.writeFile(wb, 'لوحة_الموظفين.xlsx');
+    }
+
+    function resetData() {
+      if (confirm('هل أنت متأكد من مسح جميع البيانات؟')) {
+        localStorage.removeItem(STORAGE_KEY);
+        location.reload();
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>
