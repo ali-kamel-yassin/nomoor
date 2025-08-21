@@ -3,24 +3,141 @@
 <head>
   <meta charset="UTF-8" />
   <title>لوحة إدارة الموظفين - فرز حسب الوقت</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.tailwindcss.com "></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js "></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css ">
+  <style>
+    .drag-over {
+      background-color: #f0f9ff;
+      border: 2px dashed #3b82f6;
+    }
+    .dragging {
+      opacity: 0.5;
+      transform: scale(0.98);
+    }
+    .employee-row {
+      transition: all 0.2s ease;
+      cursor: grab;
+    }
+    .employee-row:hover {
+      background-color: #f8fafc;
+    }
+    .notes-panel {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 500px;
+      max-width: 90%;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      padding: 20px;
+      flex-direction: column;
+      z-index: 1000;
+      max-height: 80vh;
+    }
+    .time-log-panel {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      max-width: 90%;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      padding: 20px;
+      flex-direction: column;
+      z-index: 1000;
+      max-height: 80vh;
+    }
+    .note {
+      background: #f1f5f9;
+      padding: 10px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .time-log-entry {
+      background: #f8fafc;
+      padding: 10px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      font-size: 14px;
+      border-right: 4px solid #3b82f6;
+    }
+    .overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+    }
+    .list-header {
+      cursor: move;
+    }
+    .gradient-bg {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .pulse-animation {
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+      100% { transform: scale(1); }
+    }
+    .progress-bar {
+      height: 8px;
+      background-color: #e5e7eb;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .progress-fill {
+      height: 100%;
+      background-color: #10b981;
+      border-radius: 4px;
+    }
+    .drop-zone {
+      border: 2px dashed transparent;
+      transition: all 0.3s ease;
+    }
+    .drop-zone.drag-over {
+      border-color: #3b82f6;
+      background-color: #f0f9ff;
+    }
+  </style>
 </head>
 <body class="bg-slate-100 font-sans">
+  <div class="overlay" id="overlay"></div>
+  
   <div class="max-w-7xl mx-auto p-6">
     <header class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-      <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">لوحة إدارة الموظفين - فرز حسب آخر زيارة</h1>
+      <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">لوحة إدارة الموظفين - تتبع الوقت والزيارات</h1>
       <div class="flex gap-2">
-        <button onclick="exportExcel()" class="bg-green-600 text-white px-4 py-2 rounded-xl shadow">📥 تصدير Excel</button>
-        <button onclick="resetData()" class="bg-red-500 text-white px-4 py-2 rounded-xl shadow">🔄 مسح البيانات</button>
+        <button onclick="exportExcel()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl shadow flex items-center gap-2 transition-all">
+          <i class="fas fa-download"></i> تصدير Excel
+        </button>
+        <button onclick="resetData()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl shadow flex items-center gap-2 transition-all">
+          <i class="fas fa-redo"></i> مسح البيانات
+        </button>
       </div>
     </header>
 
     <!-- إضافة قائمة جديدة -->
-    <section class="mb-6 flex gap-2 items-center">
-      <input id="listName" placeholder="اسم القائمة" class="border rounded-xl px-4 py-2 w-64">
+    <section class="mb-6 flex gap-2 items-center bg-white p-4 rounded-2xl shadow">
+      <input id="listName" placeholder="اسم القائمة" class="border rounded-xl px-4 py-2 w-64 focus:ring-2 focus:ring-blue-500 focus:outline-none">
       <input id="listColor" type="color" value="#4CAF50" class="w-10 h-10 border rounded-xl cursor-pointer">
-      <button onclick="addList()" class="px-4 py-2 bg-slate-800 text-white rounded-xl shadow">➕ إضافة قائمة</button>
+      <button onclick="addList()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl shadow flex items-center gap-2 transition-all">
+        <i class="fas fa-plus"></i> إضافة قائمة
+      </button>
     </section>
 
     <!-- عرض القوائم -->
@@ -29,17 +146,42 @@
 
   <!-- لوحة الملاحظات -->
   <div class="notes-panel" id="notesPanel">
-    <div class="flex justify-between items-center mb-2">
-      <span id="notesTitle" class="font-bold text-lg"></span>
-      <button onclick="closeNotes()" class="text-red-500 text-2xl">✖</button>
+    <div class="flex justify-between items-center mb-4">
+      <span id="notesTitle" class="font-bold text-lg text-slate-800"></span>
+      <button onclick="closeNotes()" class="text-red-500 hover:text-red-700 text-2xl transition-colors">
+        <i class="fas fa-times"></i>
+      </button>
     </div>
-    <div id="chatBox" class="flex-1 overflow-y-auto mb-2" style="max-height: 400px;"></div>
-    <input id="noteInput" placeholder="اكتب ملاحظة..." class="w-full border rounded-xl px-3 py-2">
+    <div id="chatBox" class="flex-1 overflow-y-auto mb-4 p-2 border rounded-lg" style="max-height: 300px;"></div>
+    <div class="flex gap-2">
+      <input id="noteInput" placeholder="اكتب ملاحظة..." class="flex-1 border rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+      <button onclick="addNote()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl transition-colors">
+        <i class="fas fa-paper-plane"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- لوحة تسجيلات الوقت -->
+  <div class="time-log-panel" id="timeLogPanel">
+    <div class="flex justify-between items-center mb-4">
+      <span id="timeLogTitle" class="font-bold text-lg text-slate-800"></span>
+      <button onclick="closeTimeLog()" class="text-red-500 hover:text-red-700 text-2xl transition-colors">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="mb-4">
+      <p id="totalTime" class="text-lg font-semibold text-green-600"></p>
+      <p id="averageTime" class="text-md text-slate-600"></p>
+    </div>
+    <div id="timeLogBox" class="flex-1 overflow-y-auto p-2 border rounded-lg" style="max-height: 400px;"></div>
   </div>
 
   <script>
     const STORAGE_KEY = 'empDashboardTimeSorted';
     let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || { lists: [] };
+    let draggedEmployee = null;
+    let sourceListId = null;
+    let draggedRowIndex = null;
 
     function save() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -61,11 +203,22 @@
       const list = state.lists.find(l => l.id === listId);
       const now = new Date();
       const time = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-      list.employees.push({ id: Date.now(), name, visits: 0, lastVisit: null, lastTime: null, notes: [] });
+      list.employees.push({ 
+        id: Date.now(), 
+        name, 
+        visits: 0, 
+        lastVisit: null, 
+        lastTime: null, 
+        notes: [],
+        timeLogs: [],
+        order: list.employees.length // لترتيب يدوي
+      });
       save();
     }
 
     function deleteEmployee(listId, empId) {
+      if (!confirm('هل أنت متأكد من حذف هذا الموظف؟')) return;
+      
       const list = state.lists.find(l => l.id === listId);
       list.employees = list.employees.filter(e => e.id !== empId);
       save();
@@ -77,92 +230,372 @@
       document.getElementById('notesTitle').textContent = `ملاحظات: ${emp.name}`;
       const chatBox = document.getElementById('chatBox');
       chatBox.innerHTML = '';
-      emp.notes.forEach(text => {
-        const div = document.createElement('div');
-        div.className = 'note';
-        div.textContent = text;
-        chatBox.appendChild(div);
-      });
+      
+      if (emp.notes.length === 0) {
+        chatBox.innerHTML = '<p class="text-center text-gray-500 py-4">لا توجد ملاحظات حتى الآن</p>';
+      } else {
+        emp.notes.forEach(text => {
+          const div = document.createElement('div');
+          div.className = 'note';
+          div.textContent = text;
+          chatBox.appendChild(div);
+        });
+      }
+      
       document.getElementById('notesPanel').style.display = 'flex';
+      document.getElementById('overlay').style.display = 'block';
       document.getElementById('noteInput').value = '';
       document.getElementById('noteInput').dataset.listId = listId;
       document.getElementById('noteInput').dataset.empId = empId;
+      document.getElementById('noteInput').focus();
+    }
+
+    function openTimeLog(listId, empId) {
+      const list = state.lists.find(l => l.id === listId);
+      const emp = list.employees.find(e => e.id === empId);
+      document.getElementById('timeLogTitle').textContent = `سجل الوقت: ${emp.name}`;
+      
+      const timeLogBox = document.getElementById('timeLogBox');
+      timeLogBox.innerHTML = '';
+      
+      if (emp.timeLogs.length === 0) {
+        timeLogBox.innerHTML = '<p class="text-center text-gray-500 py-4">لا توجد تسجيلات وقت حتى الآن</p>';
+      } else {
+        emp.timeLogs.forEach((log, index) => {
+          const div = document.createElement('div');
+          div.className = 'time-log-entry';
+          
+          const duration = log.endTime ? 
+            formatDuration(log.endTime - log.startTime) : 
+            'جاري...';
+            
+          div.innerHTML = `
+            <div class="flex justify-between items-center">
+              <span class="font-semibold">الزيارة ${index + 1}</span>
+              <span class="text-sm ${log.endTime ? 'text-green-600' : 'text-blue-600'}">${duration}</span>
+            </div>
+            <div class="text-xs text-gray-500 mt-1">
+              البدء: ${new Date(log.startTime).toLocaleString('ar-EG')}
+              ${log.endTime ? `<br>الانتهاء: ${new Date(log.endTime).toLocaleString('ar-EG')}` : ''}
+            </div>
+          `;
+          timeLogBox.appendChild(div);
+        });
+      }
+      
+      const totalTime = calculateTotalTime(emp.timeLogs);
+      const averageTime = emp.timeLogs.length > 0 ? 
+        formatDuration(totalTime / emp.timeLogs.filter(log => log.endTime).length) : 
+        '00:00:00';
+      
+      document.getElementById('totalTime').textContent = `إجمالي الوقت: ${formatDuration(totalTime)}`;
+      document.getElementById('averageTime').textContent = `متوسط الوقت: ${averageTime}`;
+      
+      document.getElementById('timeLogPanel').style.display = 'flex';
+      document.getElementById('overlay').style.display = 'block';
+    }
+
+    function calculateTotalTime(timeLogs) {
+      return timeLogs.reduce((total, log) => {
+        if (log.endTime) {
+          return total + (log.endTime - log.startTime);
+        }
+        return total;
+      }, 0);
+    }
+
+    function formatDuration(ms) {
+      if (!ms) return '00:00:00';
+      
+      const seconds = Math.floor(ms / 1000);
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      
+      return [
+        hours.toString().padStart(2, '0'),
+        minutes.toString().padStart(2, '0'),
+        secs.toString().padStart(2, '0')
+      ].join(':');
+    }
+
+    function addNote() {
+      const input = document.getElementById('noteInput');
+      const text = input.value.trim();
+      if (!text) return;
+      
+      const listId = +input.dataset.listId;
+      const empId = +input.dataset.empId;
+      const list = state.lists.find(l => l.id === listId);
+      const emp = list.employees.find(e => e.id === empId);
+      emp.notes.push(text);
+      save();
+      openNotes(listId, empId);
     }
 
     function closeNotes() {
       document.getElementById('notesPanel').style.display = 'none';
+      document.getElementById('overlay').style.display = 'none';
+    }
+
+    function closeTimeLog() {
+      document.getElementById('timeLogPanel').style.display = 'none';
+      document.getElementById('overlay').style.display = 'none';
     }
 
     document.getElementById('noteInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') {
-        const text = e.target.value.trim();
-        if (!text) return;
-        const listId = +e.target.dataset.listId;
-        const empId = +e.target.dataset.empId;
-        const list = state.lists.find(l => l.id === listId);
-        const emp = list.employees.find(e => e.id === empId);
-        emp.notes.push(text);
-        save();
-        openNotes(listId, empId);
+        addNote();
       }
     });
 
     function updateVisits(listId, empId, delta) {
       const list = state.lists.find(l => l.id === listId);
       const emp = list.employees.find(e => e.id === empId);
-      emp.visits = Math.max(0, emp.visits + delta);
+      
       if (delta > 0) {
+        emp.visits += 1;
         const now = new Date();
         emp.lastTime = now.getTime();
         emp.lastVisit = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+        
+        emp.timeLogs.push({
+          startTime: now.getTime(),
+          endTime: null
+        });
+      } else if (delta < 0 && emp.visits > 0) {
+        emp.visits -= 1;
+        
+        const activeLogIndex = emp.timeLogs.findIndex(log => log.endTime === null);
+        if (activeLogIndex !== -1) {
+          emp.timeLogs[activeLogIndex].endTime = new Date().getTime();
+        }
       }
-      // فرز الموظفين حسب الوقت (الأقدم أولاً)
-      list.employees.sort((a, b) => (a.lastTime || 0) - (b.lastTime || 0));
+      
+      sortEmployeesByTime(list);
       save();
+    }
+
+    function completeVisit(listId, empId) {
+      const list = state.lists.find(l => l.id === listId);
+      const emp = list.employees.find(e => e.id === empId);
+      
+      const activeLogIndex = emp.timeLogs.findIndex(log => log.endTime === null);
+      if (activeLogIndex !== -1) {
+        emp.timeLogs[activeLogIndex].endTime = new Date().getTime();
+        
+        // نقل الموظف إلى نهاية القائمة
+        const empIndex = list.employees.findIndex(e => e.id === empId);
+        if (empIndex !== -1) {
+          const [removedEmp] = list.employees.splice(empIndex, 1);
+          list.employees.push(removedEmp);
+        }
+        
+        save();
+        
+        if (document.getElementById('timeLogPanel').style.display === 'flex') {
+          openTimeLog(listId, empId);
+        }
+      }
+    }
+
+    function sortEmployeesByTime(list) {
+      // نفرز حسب الوقت (الأحدث أولاً) أو حسب الترتيب اليدوي
+      list.employees.sort((a, b) => {
+        if (a.lastTime && b.lastTime) {
+          return b.lastTime - a.lastTime;
+        }
+        return (b.lastTime || 0) - (a.lastTime || 0);
+      });
+    }
+
+    // وظائف السحب والإفلات
+    function onDragStart(e, listId, empId, index) {
+      draggedEmployee = { listId, empId, index };
+      sourceListId = listId;
+      e.target.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', '');
+      e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function onDragOver(e, listId) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      
+      const targetElement = e.target.closest('tr') || e.target.closest('tbody');
+      if (targetElement) {
+        targetElement.classList.add('drag-over');
+      }
+    }
+
+    function onDragLeave(e) {
+      const targetElement = e.target.closest('tr') || e.target.closest('tbody');
+      if (targetElement) {
+        targetElement.classList.remove('drag-over');
+      }
+    }
+
+    function onDrop(e, listId, targetIndex) {
+      e.preventDefault();
+      
+      const allRows = document.querySelectorAll('.employee-row');
+      allRows.forEach(row => row.classList.remove('drag-over'));
+      
+      if (!draggedEmployee) return;
+      
+      const sourceList = state.lists.find(l => l.id === draggedEmployee.listId);
+      const targetList = state.lists.find(l => l.id === listId);
+      
+      if (sourceList.id === targetList.id) {
+        // إعادة ترتيب داخل نفس القائمة
+        const emp = sourceList.employees[draggedEmployee.index];
+        sourceList.employees.splice(draggedEmployee.index, 1);
+        
+        if (targetIndex !== undefined) {
+          sourceList.employees.splice(targetIndex, 0, emp);
+        } else {
+          sourceList.employees.push(emp);
+        }
+      } else {
+        // نقل إلى قائمة أخرى
+        const emp = sourceList.employees[draggedEmployee.index];
+        sourceList.employees.splice(draggedEmployee.index, 1);
+        
+        if (targetIndex !== undefined) {
+          targetList.employees.splice(targetIndex, 0, emp);
+        } else {
+          targetList.employees.push(emp);
+        }
+        
+        // تحديث وقت الزيارة تلقائياً
+        const now = new Date();
+        emp.lastTime = now.getTime();
+        emp.lastVisit = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+        emp.visits += 1;
+        emp.timeLogs.push({
+          startTime: now.getTime(),
+          endTime: null
+        });
+      }
+      
+      draggedEmployee = null;
+      save();
+    }
+
+    function onDragEnd(e) {
+      const allRows = document.querySelectorAll('.employee-row');
+      allRows.forEach(row => {
+        row.classList.remove('dragging');
+        row.classList.remove('drag-over');
+      });
     }
 
     function render() {
       const container = document.getElementById('listsContainer');
       container.innerHTML = '';
+      
+      if (state.lists.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full text-center py-12">
+            <div class="gradient-bg text-white p-8 rounded-2xl shadow-lg pulse-animation">
+              <i class="fas fa-inbox text-5xl mb-4"></i>
+              <h2 class="text-2xl font-bold mb-2">لا توجد قوائم</h2>
+              <p class="opacity-90">انشئ قائمة جديدة لبدء إدارة الموظفين</p>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      
       state.lists.forEach(list => {
         const section = document.createElement('section');
-        section.className = 'bg-white border rounded-2xl shadow p-4';
+        section.className = 'list-section bg-white border rounded-2xl shadow p-4 relative';
         section.style.borderColor = list.color;
+        section.draggable = false;
+
+        const employeesWithActiveVisits = list.employees.filter(emp => 
+          emp.timeLogs.some(log => log.endTime === null)
+        ).length;
 
         section.innerHTML = `
-          <div class="flex justify-between items-center mb-3">
-            <input class="list-name font-bold text-lg bg-transparent" value="${list.name}" onchange="renameList(${list.id}, this.value)">
-            <input type="color" value="${list.color}" onchange="changeColor(${list.id}, this.value)">
-            <button class="text-red-500 text-sm" onclick="deleteList(${list.id})">🗑️</button>
+          <div class="flex justify-between items-center mb-3 list-header">
+            <div>
+              <input class="list-name font-bold text-lg bg-transparent focus:ring-2 focus:ring-blue-500 focus:outline-none px-2 py-1 rounded" value="${list.name}" onchange="renameList(${list.id}, this.value)">
+              <span class="text-xs text-gray-500 block">${list.employees.length} موظف | ${employeesWithActiveVisits} زيارة نشطة</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <input type="color" value="${list.color}" onchange="changeColor(${list.id}, this.value)" class="w-8 h-8 border rounded cursor-pointer">
+              <button class="text-red-500 hover:text-red-700 transition-colors" onclick="deleteList(${list.id})">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
           </div>
-          <button onclick="addEmployee(${list.id})" class="mb-2 text-sm bg-blue-500 text-white px-3 py-1 rounded">➕ إضافة موظف</button>
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b">
-                <th class="text-left">الاسم</th>
-                <th class="text-center">الزيارات</th>
-                <th class="text-center">آخر زيارة</th>
-                <th class="text-center">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody id="list-${list.id}">
-              ${list.employees.map(emp => `
-                <tr>
-                  <td>${emp.name}</td>
-                  <td class="text-center">
-                    <button onclick="updateVisits(${list.id}, ${emp.id}, -1)">-</button>
-                    <span class="mx-2">${emp.visits}</span>
-                    <button onclick="updateVisits(${list.id}, ${emp.id}, 1)">+</button>
-                  </td>
-                  <td class="text-center">${emp.lastVisit || '-'}</td>
-                  <td class="text-center">
-                    <button onclick="openNotes(${list.id}, ${emp.id})" class="text-sm bg-green-100 px-2 py-1 rounded">💬</button>
-                    <button onclick="deleteEmployee(${list.id}, ${emp.id})" class="text-sm bg-red-100 px-2 py-1 rounded">❌</button>
-                  </td>
+          <button onclick="addEmployee(${list.id})" class="mb-3 w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl shadow flex items-center justify-center gap-2 transition-all">
+            <i class="fas fa-user-plus"></i> إضافة موظف
+          </button>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b">
+                  <th class="text-right p-2">الاسم</th>
+                  <th class="text-center p-2">الزيارات</th>
+                  <th class="text-center p-2">آخر زيارة</th>
+                  <th class="text-center p-2">إجمالي الوقت</th>
+                  <th class="text-center p-2">إجراءات</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
+              </thead>
+              <tbody id="list-${list.id}" 
+                ondrop="onDrop(event, ${list.id})" 
+                ondragover="onDragOver(event, ${list.id})" 
+                ondragleave="onDragLeave(event)">
+                ${list.employees.map((emp, index) => {
+                  const totalTime = calculateTotalTime(emp.timeLogs);
+                  const activeVisit = emp.timeLogs.some(log => log.endTime === null);
+                  
+                  return `
+                  <tr class="employee-row border-b ${activeVisit ? 'bg-blue-50' : ''}" 
+                      draggable="true" 
+                      ondragstart="onDragStart(event, ${list.id}, ${emp.id}, ${index})" 
+                      ondragend="onDragEnd(event)"
+                      ondrop="onDrop(event, ${list.id}, ${index})"
+                      ondragover="onDragOver(event, ${list.id})"
+                      ondragleave="onDragLeave(event)">
+                    <td class="p-2 font-medium">${emp.name} ${activeVisit ? '<span class="text-xs text-blue-500">(نشط)</span>' : ''}</td>
+                    <td class="p-2 text-center">
+                      <div class="flex items-center justify-center gap-1">
+                        <button onclick="event.stopPropagation(); updateVisits(${list.id}, ${emp.id}, -1)" class="w-6 h-6 bg-red-100 text-red-600 rounded-full flex items-center justify-center hover:bg-red-200 transition-colors">-</button>
+                        <span class="mx-2 w-6 text-center">${emp.visits}</span>
+                        <button onclick="event.stopPropagation(); updateVisits(${list.id}, ${emp.id}, 1)" class="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center hover:bg-green-200 transition-colors">+</button>
+                      </div>
+                    </td>
+                    <td class="p-2 text-center">${emp.lastVisit || '-'}</td>
+                    <td class="p-2 text-center">${formatDuration(totalTime)}</td>
+                    <td class="p-2 text-center">
+                      <button onclick="event.stopPropagation(); openTimeLog(${list.id}, ${emp.id})" class="bg-blue-100 text-blue-600 p-1 rounded mx-1 hover:bg-blue-200 transition-colors" title="سجل الوقت">
+                        <i class="fas fa-clock"></i>
+                      </button>
+                      <button onclick="event.stopPropagation(); completeVisit(${list.id}, ${emp.id})" class="bg-yellow-100 text-yellow-600 p-1 rounded mx-1 hover:bg-yellow-200 transition-colors" title="إنهاء الزيارة">
+                        <i class="fas fa-check-circle"></i>
+                      </button>
+                      <button onclick="event.stopPropagation(); openNotes(${list.id}, ${emp.id})" class="bg-green-100 text-green-600 p-1 rounded mx-1 hover:bg-green-200 transition-colors" title="ملاحظات">
+                        <i class="fas fa-comment"></i>
+                      </button>
+                      <button onclick="event.stopPropagation(); deleteEmployee(${list.id}, ${emp.id})" class="bg-red-100 text-red-600 p-1 rounded mx-1 hover:bg-red-200 transition-colors" title="حذف">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+            ${list.employees.length === 0 ? `
+              <p class="text-center text-gray-500 py-4">لا يوجد موظفين في هذه القائمة</p>
+            ` : ''}
+          </div>
+          <div class="mt-3 text-xs text-gray-500 text-center">
+            اسحب الموظفين بين القوائم أو داخل نفس القائمة لإعادة الترتيب
+          </div>
         `;
         container.appendChild(section);
       });
@@ -181,7 +614,7 @@
     }
 
     function deleteList(id) {
-      if (confirm('هل أنت متأكد من حذف القائمة؟')) {
+      if (confirm('هل أنت متأكد من حذف القائمة؟ سيتم حذف جميع الموظفين فيها.')) {
         state.lists = state.lists.filter(l => l.id !== id);
         save();
       }
@@ -190,19 +623,28 @@
     function exportExcel() {
       const wb = XLSX.utils.book_new();
       state.lists.forEach(list => {
-        const rows = [['القائمة', 'الاسم', 'عدد الزيارات', 'آخر زيارة', 'الملاحظات']];
+        const rows = [['القائمة', 'الاسم', 'عدد الزيارات', 'آخر زيارة', 'إجمالي الوقت', 'الملاحظات']];
         list.employees.forEach(emp => {
-          rows.push([list.name, emp.name, emp.visits, emp.lastVisit || '-', emp.notes.join(' | ')]);
+          const totalTime = calculateTotalTime(emp.timeLogs);
+          rows.push([
+            list.name, 
+            emp.name, 
+            emp.visits, 
+            emp.lastVisit || '-', 
+            formatDuration(totalTime),
+            emp.notes.join(' | ')
+          ]);
         });
         const ws = XLSX.utils.aoa_to_sheet(rows);
         XLSX.utils.book_append_sheet(wb, ws, list.name);
       });
 
-      const summary = [['القائمة', 'عدد الموظفين', 'إجمالي الزيارات', 'متوسط الزيارات']];
+      const summary = [['القائمة', 'عدد الموظفين', 'إجمالي الزيارات', 'متوسط الزيارات', 'إجمالي الوقت']];
       state.lists.forEach(list => {
-        const total = list.employees.reduce((sum, e) => sum + e.visits, 0);
-        const avg = list.employees.length ? (total / list.employees.length).toFixed(1) : 0;
-        summary.push([list.name, list.employees.length, total, avg]);
+        const totalVisits = list.employees.reduce((sum, e) => sum + e.visits, 0);
+        const totalTime = list.employees.reduce((sum, e) => sum + calculateTotalTime(e.timeLogs), 0);
+        const avg = list.employees.length ? (totalVisits / list.employees.length).toFixed(1) : 0;
+        summary.push([list.name, list.employees.length, totalVisits, avg, formatDuration(totalTime)]);
       });
       const wsSummary = XLSX.utils.aoa_to_sheet(summary);
       XLSX.utils.book_append_sheet(wb, wsSummary, 'تلخيص');
@@ -211,11 +653,16 @@
     }
 
     function resetData() {
-      if (confirm('هل أنت متأكد من مسح جميع البيانات؟')) {
+      if (confirm('هل أنت متأكد من مسح جميع البيانات؟ لا يمكن التراجع عن هذا الإجراء.')) {
         localStorage.removeItem(STORAGE_KEY);
         location.reload();
       }
     }
+
+    document.getElementById('overlay').addEventListener('click', function() {
+      closeNotes();
+      closeTimeLog();
+    });
 
     render();
   </script>

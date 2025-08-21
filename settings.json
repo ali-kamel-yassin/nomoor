@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>محول الصور إلى نمط الأنمي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-white dark:bg-gray-900 min-h-screen transition-colors duration-300">
+    <div class="container mx-auto px-4 py-8 max-w-3xl">
+        <h1 class="text-3xl font-bold text-center mb-6 text-gray-800 dark:text-white">تحويل الصورة إلى نمط الأنمي</h1>
+        <p class="text-center mb-8 text-gray-600 dark:text-gray-300">حوّل صورتك إلى نمط الأنمي باستخدام الذكاء الاصطناعي</p>
+        
+        <div class="grid md:grid-cols-2 gap-6">
+            <!-- Original Image -->
+            <div class="bg-gray-100 dark:bg-gray-800 rounded-lg shadow p-4">
+                <h2 class="text-xl font-semibold mb-3 text-gray-700 dark:text-gray-200">الصورة الأصلية</h2>
+                <div class="aspect-square relative overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700 border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center">
+                    <img id="originalImage" class="max-h-full max-w-full object-contain" src="" alt="صورة المستخدم الأصلية">
+                    <div id="dropArea" class="absolute inset-0 flex flex-col items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">اضغط أو اسحب صورة هنا</p>
+                    </div>
+                    <input type="file" id="fileInput" class="hidden" accept="image/*" title="اختر صورة لتحويلها">
+                </div>
+                <label for="uploadButton" class="mt-4 block text-center">
+                    <button id="uploadButton" class="w-full py-2 px-4 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg transition-colors" title="اختر صورة">
+                        اختر صورة
+                    </button>
+                </label>
+            </div>
+            
+            <!-- Anime Result -->
+            <div class="bg-gray-100 dark:bg-gray-800 rounded-lg shadow p-4">
+                <h2 class="text-xl font-semibold mb-3 text-gray-700 dark:text-gray-200">صورة الأنمي</h2>
+                <div class="aspect-square relative overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                    <img id="animeImage" class="max-h-full max-w-full object-contain hidden" src="" alt="صورة الأنمي">
+                    <div id="loadingIndicator" class="hidden flex-col items-center justify-center">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                        <p class="mt-4 text-sm text-gray-600 dark:text-gray-300">جاري إنشاء صورة الأنمي...</p>
+                    </div>
+                    <div id="placeholder" class="flex flex-col items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">ستظهر صورة الأنمي هنا</p>
+                    </div>
+                </div>
+                <button id="convertButton" class="mt-4 w-full py-2 px-4 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg transition-colors" disabled title="قم بتحويل الصورة إلى نمط الأنمي">
+                    تحويل إلى أنمي
+                </button>
+            </div>
+        </div>
+        
+        <div class="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
+            <p>يمكنك حفظ الصورة بالضغط بزر الفأرة الأيمن على الصورة واختيار "حفظ الصورة"</p>
+            <p class="mt-2">تستخدم هذه الأداة FLUX-pro-1.1 لإنشاء صور بنمط الأنمي</p>
+        </div>
+    </div>
+
+    <script>
+        // Setup dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            document.documentElement.classList.toggle('dark', event.matches);
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const uploadButton = document.getElementById('uploadButton');
+            const fileInput = document.getElementById('fileInput');
+            const dropArea = document.getElementById('dropArea');
+            const originalImage = document.getElementById('originalImage');
+            const convertButton = document.getElementById('convertButton');
+            const animeImage = document.getElementById('animeImage');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const placeholder = document.getElementById('placeholder');
+
+            // Handle file upload button click
+            uploadButton.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            // Handle file selection
+            fileInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        originalImage.src = e.target.result;
+                        dropArea.style.display = 'none';
+                        convertButton.disabled = false;
+                    };
+                    reader.readAsDataURL(this.files[0]);
+                }
+            });
+
+            // Handle drag and drop
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight() {
+                dropArea.classList.add('bg-gray-300', 'dark:bg-gray-600');
+            }
+
+            function unhighlight() {
+                dropArea.classList.remove('bg-gray-300', 'dark:bg-gray-600');
+            }
+
+            dropArea.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files && files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        originalImage.src = e.target.result;
+                        dropArea.style.display = 'none';
+                        convertButton.disabled = false;
+                    };
+                    reader.readAsDataURL(files[0]);
+                }
+            }
+
+            // Handle convert button click
+            convertButton.addEventListener('click', async () => {
+                if (!originalImage.src) {
+                    alert('الرجاء تحميل صورة أولاً');
+                    return;
+                }
+
+                // Show loading state
+                animeImage.classList.add('hidden');
+                placeholder.classList.add('hidden');
+                loadingIndicator.classList.remove('hidden');
+                convertButton.disabled = true;
+
+                try {
+                    // Convert image to File object for attachment
+                    const response = await fetch(originalImage.src);
+                    const blob = await response.blob();
+                    const file = new File([blob], 'user_image.jpg', { type: blob.type });
+
+                    // تأكد من أن window.Poe موجود
+                    if (window.Poe && typeof window.Poe.sendUserMessage === 'function') {
+                        await window.Poe.sendUserMessage(
+                            "@FLUX-pro-1.1 Convert this photo to anime style artwork. Make it high quality anime portrait with detailed features and vibrant colors.",
+                            {
+                                attachments: [file],
+                                handler: "anime-handler",
+                                stream: false,
+                                openChat: false
+                            }
+                        );
+                    } else {
+                        throw new Error('Poe is not defined or sendUserMessage is not available.');
+                    }
+                } catch (err) {
+                    console.error("Error:", err);
+                    loadingIndicator.classList.add('hidden');
+                    placeholder.classList.remove('hidden');
+                    placeholder.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p class="mt-2 text-sm text-red-500">خطأ: ${err.message || 'فشل في إرسال الطلب'}</p>
+                    `;
+                    convertButton.disabled = false;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
